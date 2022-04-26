@@ -2,7 +2,7 @@
 
 __author__ = 'Andrea Silverj'
 __version__='0.9_beta'
-__date__='27 March 2022'
+__date__='26 April 2022'
 
 from Bio import SeqIO
 from Bio.SeqIO import FastaIO
@@ -12,37 +12,42 @@ import sys
 
 def read_args(args):
 
-    parser = ap.ArgumentParser(description = '# Select sequences of a FASTA file using a list of IDs #\n')
+	parser = ap.ArgumentParser(description = '# Select sequences of a FASTA file using a list of IDs #\n')
 
-    required = parser.add_argument_group('required arguments')
+	required = parser.add_argument_group('required arguments')
     
-    required.add_argument('-f',
-    					required=True,
-						metavar='fasta_file',
+	required.add_argument('-f',
+    					required = True,
+						metavar = 'fasta_file',
 						nargs = '?',
 						help = "FASTA file",
 						type = str)
 
-    required.add_argument('-ids',
-    					required=True,
-						metavar='list_of_ids',
+	required.add_argument('-ids',
+    					required = True,
+						metavar = 'list_of_ids',
 						nargs = '?',
 						help = 'TXT file with one ID per line',
 						type = str)
 
-    required.add_argument('-o',
-    					required=True,
-    					metavar=('output_name'),
-    					nargs='?',
-    					help='name of the output file',
-    					type= str)
+	required.add_argument('-o',
+    					required = True,
+    					metavar = ('output_name'),
+    					nargs = '?',
+    					help = 'name of the output file',
+    					type = str)
 
-    parser.add_argument('-ord',
-    					required=False,
-						action="store_true",
+	parser.add_argument('-ord',
+    					required = False,
+						action = "store_true",
 						help = 'use sequence order of the IDs list')
 
-    return vars(parser.parse_args())
+	parser.add_argument('-rev',
+						required = False,
+						action = "store_true",
+						help = 'select sequences not in the IDs list')
+
+	return vars(parser.parse_args())
 
 
 def check_missing_files(args):
@@ -76,17 +81,43 @@ if __name__ == '__main__':
 	list_ids=[]
 	for i in list_op_ids:
 		list_ids+=[i.strip("\n")]
- 
-	if not args['ord']:
-		outf=open(args['o'], "w")
-		for rec in SeqIO.parse(fasta, "fasta"):
-			if rec.id in list_ids:
-				outf.write(">"+str(rec.description)+"\n"+str(rec.seq)+"\n")
-		outf.close()
+
+
+	if not args['rev']: 
+		if not args['ord']:
+			outf=open(args['o'], "w")
+			for rec in SeqIO.parse(fasta, "fasta"):
+				if rec.id in list_ids:
+					outf.write(">"+str(rec.description)+"\n"+str(rec.seq)+"\n")
+			outf.close()
+
+		else:
+			with open(fasta) as seqs, open(args['o'], 'w') as result:
+				record_dict = SeqIO.to_dict(SeqIO.parse(seqs, 'fasta'))
+				result_records = [record_dict[id_] for id_ in list_ids]
+				fasta_writer = FastaIO.FastaWriter(result, wrap=None)
+				fasta_writer.write_file(result_records)
 
 	else:
-		with open(fasta) as seqs, open(args['o'], 'w') as result:
-			record_dict = SeqIO.to_dict(SeqIO.parse(seqs, 'fasta'))
-			result_records = [record_dict[id_] for id_ in list_ids]
-			fasta_writer = FastaIO.FastaWriter(result, wrap=None)
-			fasta_writer.write_file(result_records)
+		list_headers=[]
+		for rec in SeqIO.parse(fasta, "fasta"):
+			list_headers+=[str(rec.description)]
+
+		ids_list_absent=[]
+		for header in list_headers:
+			if header not in list_ids:
+				ids_list_absent+=[header]
+
+		if not args['ord']:
+			outf=open(args['o'], "w")
+			for rec in SeqIO.parse(fasta, "fasta"):
+				if rec.id in ids_list_absent:
+					outf.write(">"+str(rec.description)+"\n"+str(rec.seq)+"\n")
+			outf.close()
+
+		else:
+			with open(fasta) as seqs, open(args['o'], 'w') as result:
+				record_dict = SeqIO.to_dict(SeqIO.parse(seqs, 'fasta'))
+				result_records = [record_dict[id_] for id_ in ids_list_absent]
+				fasta_writer = FastaIO.FastaWriter(result, wrap=None)
+				fasta_writer.write_file(result_records)
